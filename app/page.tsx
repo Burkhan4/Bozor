@@ -1,65 +1,57 @@
-import Image from "next/image";
+import { supabaseServer } from "@/lib/supabase-server";
+import { Product, Category } from "@/lib/supabase";
+import ProductGrid from "@/components/ProductGrid";
 
-export default function Home() {
+async function getData() {
+  const [{ data: products }, { data: categories }] = await Promise.all([
+    supabaseServer.from("products").select("*").order("created_at", { ascending: false }),
+    supabaseServer.from("categories").select("*").order("id"),
+  ]);
+  return {
+    products: (products || []) as Product[],
+    categories: (categories || []) as Category[],
+  };
+}
+
+export default async function HomePage() {
+  const { products, categories } = await getData();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div style={{ backgroundColor: "#F5F5F5", minHeight: "100vh" }}>
+      <div className="page-container">
+
+        {/* Hero Banner */}
+        <div style={{
+          background: "linear-gradient(135deg, #7B2FBE 0%, #4A90D9 100%)",
+          borderRadius: 16,
+          padding: "clamp(24px, 5vw, 56px) clamp(24px, 5vw, 56px)",
+          marginBottom: 28,
+          color: "#fff",
+          position: "relative",
+          overflow: "hidden",
+        }}>
+          <div style={{ position: "absolute", right: -50, top: -50, width: 220, height: 220, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", right: 60, bottom: -70, width: 300, height: 300, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
+          <h1 style={{ margin: "0 0 8px", fontWeight: 800, fontSize: "clamp(1.4rem, 4vw, 2.6rem)", position: "relative", zIndex: 1, lineHeight: 1.2 }}>
+            Eng yaxshi narxlar 🛍️
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p style={{ margin: 0, opacity: 0.88, fontSize: "clamp(0.875rem, 2vw, 1.05rem)", position: "relative", zIndex: 1, maxWidth: 500 }}>
+            Mingdan ortiq mahsulot orasidan o'zingizga mosini toping. Tez yetkazib berish kafolatlangan.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Section header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+          <h2 style={{ margin: 0, fontWeight: 700, fontSize: "clamp(1rem, 2.5vw, 1.4rem)", color: "#1a1a1a" }}>
+            Barcha mahsulotlar
+          </h2>
+          <span style={{ color: "#888", fontSize: "0.85rem", fontWeight: 500, backgroundColor: "#fff", padding: "4px 12px", borderRadius: 20, border: "1px solid #e0e0e0" }}>
+            {products.length} ta
+          </span>
         </div>
-      </main>
+
+        <ProductGrid products={products} categories={categories} />
+      </div>
     </div>
   );
 }
