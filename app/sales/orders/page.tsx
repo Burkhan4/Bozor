@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import type { Order, OrderItem, Product, Profile } from "@/lib/supabase";
 import { useAppSelector } from "@/store/hooks";
 import { formatPrice } from "@/lib/format";
+import { sendOrderApprovedNotification } from "@/lib/telegram";
 
 const STATUS_CFG = {
   pending:   { text: "Kutilmoqda",    cls: "badge-pending" },
@@ -234,11 +235,38 @@ export default function AdminOrdersPage() {
                     </div>
 
                     {/* ── Action buttons ── */}
-                                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
-                      <div style={{ color: "#555", fontWeight: 600 }}>
-                        Bu buyurtma faqat ko&apos;rish uchun. Holat va o&apos;chirish admin panelida boshqariladi.
+                    {order.status === "pending" && (
+                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6", display: "flex", gap: 10 }}>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from("orders")
+                              .update({ status: "approved" })
+                              .eq("id", order.id);
+                            if (!error) {
+                              sendOrderApprovedNotification(order.id);
+                              load();
+                            }
+                          }}
+                        >
+                          ✅ Tasdiqlash
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: "#e53e3e" }}
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from("orders")
+                              .update({ status: "rejected" })
+                              .eq("id", order.id);
+                            if (!error) load();
+                          }}
+                        >
+                          ❌ Rad etish
+                        </button>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>
