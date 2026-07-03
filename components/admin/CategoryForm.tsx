@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Category } from "@/lib/supabase";
+import { useAppSelector } from "@/store/hooks";
 
 interface Props {
   category?: Category | null;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function CategoryForm({ category, onClose, onSaved }: Props) {
+  const { user } = useAppSelector((s) => s.auth);
   const isEdit = !!category;
   const [name, setName] = useState(category?.name || "");
   const [saving, setSaving] = useState(false);
@@ -31,7 +33,8 @@ export default function CategoryForm({ category, onClose, onSaved }: Props) {
       const { error: e } = await supabase
         .from("categories")
         .update({ name: name.trim() })
-        .eq("id", category.id);
+        .eq("id", category.id)
+        .eq("salesman_id", user?.id ?? "");
 
       if (e) {
         setError(e.message);
@@ -43,6 +46,7 @@ export default function CategoryForm({ category, onClose, onSaved }: Props) {
         .from("categories")
         .insert({
           name: name.trim(),
+          salesman_id: user?.id ?? null,
         })
         .select();
 

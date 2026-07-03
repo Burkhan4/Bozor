@@ -11,7 +11,20 @@ async function getData(categoryId: number) {
     supabaseServer.from("products").select("*").eq("category_id", categoryId).order("created_at", { ascending: false }),
     supabaseServer.from("categories").select("*"),
   ]);
-  return { category, products: (products || []) as Product[], allCats: (allCats || []) as Category[] };
+
+  const prods = (products || []) as Product[];
+  const sellerIds = Array.from(new Set(prods.map((p) => p.salesman_id).filter(Boolean))) as string[];
+  let profilesMap = new Map<string, string | null>();
+  if (sellerIds.length > 0) {
+    const { data: profiles } = await supabaseServer.from("profiles").select("id, organization").in("id", sellerIds);
+    (profiles || []).forEach((pr: any) => profilesMap.set(pr.id, pr.organization ?? null));
+  }
+
+  return {
+    category,
+    products: prods.map((product) => ({ ...product, organization: product.salesman_id ? profilesMap.get(product.salesman_id) ?? null : null })) as Product[],
+    allCats: (allCats || []) as Category[],
+  };
 }
 
 export default async function CategoryPage({ params }: Props) {

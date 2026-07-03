@@ -20,7 +20,7 @@ async function buildUser(authUser: User) {
     email: authUser.email ?? "",
     full_name: (profile?.full_name as string) || meta?.full_name || meta?.name || "",
     phone: (profile?.phone as string) || "",
-    role: (profile?.role as string) || "user",
+    role: (profile?.role as "user" | "salesman" | "admin") || "user",
   };
 }
 

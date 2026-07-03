@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import CategoryForm from "@/components/admin/CategoryForm";
 import { supabase } from "@/lib/supabase";
-import type { Category } from "@/lib/supabase";
+import type { Category, Product } from "@/lib/supabase";
+import { useAppSelector } from "@/store/hooks";
 
 interface CategoryWithCount extends Category { product_count: number; }
 
 export default function AdminCategoriesPage() {
+  const { user } = useAppSelector((s) => s.auth);
   const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [showForm,   setShowForm]   = useState(false);
@@ -17,27 +19,33 @@ export default function AdminCategoriesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: cats }, { data: prods }] = await Promise.all([
+    const [{ data: cats }, { data: prods }]: [{ data: Category[] | null }, { data: Pick<Product, "category_id">[] | null }] = await Promise.all([
       supabase.from("categories").select("*").order("name"),
       supabase.from("products").select("category_id"),
     ]);
     const countMap = new Map<number, number>();
-    (prods || []).forEach((p: any) => countMap.set(p.category_id, (countMap.get(p.category_id) || 0) + 1));
-    setCategories((cats || []).map((c: any) => ({ ...c, product_count: countMap.get(c.id) || 0 })));
+    (prods || []).forEach((p) => countMap.set(p.category_id, (countMap.get(p.category_id) || 0) + 1));
+    setCategories((cats || []).map((c: Category) => ({ ...c, product_count: countMap.get(c.id) || 0 })));
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load(); }, [load]);
 
   const handleDelete = async (cat: CategoryWithCount) => {
-    if (cat.product_count > 0) {
-      setError(`"${cat.name}" kategoriyasida ${cat.product_count} ta mahsulot bor. Avval mahsulotlarni o'chiring.`);
+    if (cat.salesman_id !== user?.id) {
+      setError("Faqat o&apos;zingiz yaratgan kategoriyalarni o&apos;chira olasiz.");
       return;
     }
-    if (!confirm(`"${cat.name}" ni o'chirishni tasdiqlaysizmi?`)) return;
+
+    if (cat.product_count > 0) {
+      setError(`"${cat.name}" kategoriyasida ${cat.product_count} ta mahsulot bor. Avval mahsulotlarni o&apos;chiring.`);
+      return;
+    }
+    if (!confirm(`"${cat.name}" ni o&apos;chirishni tasdiqlaysizmi?`)) return;
     setError("");
     setDeleting(cat.id);
-    await supabase.from("categories").delete().eq("id", cat.id);
+    await supabase.from("categories").delete().eq("id", cat.id).eq("salesman_id", user?.id ?? "");
     setCategories((prev) => prev.filter((c) => c.id !== cat.id));
     setDeleting(null);
   };
@@ -47,8 +55,11 @@ export default function AdminCategoriesPage() {
       <div className="admin-page-header">
         <h1>🏷️ Kategoriyalar</h1>
         <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>
-          ➕ Kategoriya qo'shish
+          ➕ Kategoriya qo&apos;shish
         </button>
+      </div>
+      <div style={{ marginBottom: 14, color: "#555", fontSize: "0.92rem" }}>
+        Faqat sizning yaratilgan kategoriyalaringizni tahrirlash va o&apos;chirish mumkin.
       </div>
 
       {error && (
@@ -65,7 +76,7 @@ export default function AdminCategoriesPage() {
             <p style={{ marginTop: 12 }}>Yuklanmoqda...</p>
           </div>
         ) : categories.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">📭</div><p>Kategoriyalar yo'q</p></div>
+          <div className="empty-state"><div className="empty-icon">📭</div><p>Kategoriyalar yo&apos;q</p></div>
         ) : (
           <div className="admin-table-wrap">
             <table className="admin-table">
@@ -89,10 +100,15 @@ export default function AdminCategoriesPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setEditItem(cat); setShowForm(true); }}>✏️</button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={cat.salesman_id !== user?.id}
+                          title={cat.salesman_id !== user?.id ? "Faqat o&apos;zingiz yaratgan kategoriyalarni tahrirlashingiz mumkin" : "Tahrirlash"}
+                          onClick={() => { setEditItem(cat); setShowForm(true); }}
+                        >✏️</button>
                         <button className="btn btn-danger btn-sm"
-                          disabled={deleting === cat.id || cat.product_count > 0}
-                          title={cat.product_count > 0 ? "Avval mahsulotlarni o'chiring" : "O'chirish"}
+                          disabled={deleting === cat.id || cat.product_count > 0 || cat.salesman_id !== user?.id}
+                          title={cat.product_count > 0 ? "Avval mahsulotlarni o&apos;chiring" : cat.salesman_id !== user?.id ? "Faqat o&apos;zingiz yaratgan kategoriyalarni o&apos;chira olasiz" : "O&apos;chirish"}
                           onClick={() => handleDelete(cat)}>
                           {deleting === cat.id ? "⏳" : "🗑️"}
                         </button>

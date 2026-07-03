@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Order, OrderItem, Product, Profile } from "@/lib/supabase";
+import { useAppSelector } from "@/store/hooks";
 import { formatPrice } from "@/lib/format";
 
 const STATUS_CFG = {
@@ -18,7 +19,9 @@ interface OrderFull extends Order {
   items: (OrderItem & { product?: Pick<Product, "id" | "name" | "image" | "price"> })[];
 }
 
+// ── Main page ──
 export default function AdminOrdersPage() {
+  const { user } = useAppSelector((s) => s.auth);
   const [orders,   setOrders]   = useState<OrderFull[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [filter,   setFilter]   = useState<"all" | StatusKey>("all");
@@ -26,6 +29,12 @@ export default function AdminOrdersPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+
+    if (!user) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
     const { data: ords, error: ordErr } = await supabase
       .from("orders")
@@ -42,7 +51,7 @@ export default function AdminOrdersPage() {
 
     const [{ data: allItems }, { data: allProducts }, { data: allProfiles }] = await Promise.all([
       supabase.from("order_items").select("*").in("order_id", orderIds),
-      supabase.from("products").select("id, name, image, price"),
+      supabase.from("products").select("id, name, image, price, salesman_id"),
       supabase.from("profiles").select("id, full_name, phone").in("id", userIds),
     ]);
 
@@ -50,24 +59,35 @@ export default function AdminOrdersPage() {
     const productsArr = (allProducts || []) as Product[];
     const profilesArr = (allProfiles || []) as (Profile & { id: string })[];
 
+    const sellerProductIds = new Set(productsArr
+      .filter((p) => p.salesman_id === user.id)
+      .map((p) => p.id)
+    );
+
+    const sellerItems = itemsArr.filter((i) => sellerProductIds.has(Number(i.product_id)));
+    const sellerOrderIds = new Set(sellerItems.map((i) => Number(i.order_id)));
+
     const prodMap    = new Map(productsArr.map((p) => [p.id, p]));
     const profileMap = new Map(profilesArr.map((p) => [p.id, p]));
 
-    setOrders(ordersArr.map((o) => ({
-      ...o,
-      profile: profileMap.get(o.user_id) || null,
-      items: itemsArr
-        .filter((i) => String(i.order_id) === String(o.id))
-        .map((i) => ({ ...i, product: prodMap.get(Number(i.product_id)) })),
-    })));
+    setOrders(ordersArr
+      .filter((o) => sellerOrderIds.has(Number(o.id)))
+      .map((o) => ({
+        ...o,
+        profile: profileMap.get(o.user_id) || null,
+        items: sellerItems
+          .filter((i) => String(i.order_id) === String(o.id))
+          .map((i) => ({ ...i, product: prodMap.get(Number(i.product_id)) })),
+      }))
+    );
 
     setLoading(false);
-  }, []);
+  }, [user]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
-
+  // ── Counts ──
   const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
   const counts = {
     all:       orders.length,
@@ -84,6 +104,7 @@ export default function AdminOrdersPage() {
         <button className="btn btn-secondary btn-sm" onClick={load}>🔄 Yangilash</button>
       </div>
 
+      {/* Filter tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {(["all","pending","approved","rejected","cancelled"] as const).map((f) => {
           const lbl = { all: "Barchasi", pending: "Kutilmoqda", approved: "Tasdiqlangan", rejected: "Rad etilgan", cancelled: "Bekor" };
@@ -117,6 +138,8 @@ export default function AdminOrdersPage() {
 
             return (
               <div key={order.id} className="admin-card" style={{ padding: 0, overflow: "hidden" }}>
+
+                {/* ── Row (click to expand) ── */}
                 <div
                   style={{ display: "flex", alignItems: "center", padding: "14px 20px", cursor: "pointer", gap: 12, flexWrap: "wrap" }}
                   onClick={() => setExpanded(isOpen ? null : order.id)}
@@ -128,7 +151,7 @@ export default function AdminOrdersPage() {
                   </span>
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                      {order.profile?.full_name || "Noma&apos;lum"}
+                      {order.profile?.full_name || "Noma'lum"}
                     </div>
                     <div style={{ fontSize: "0.78rem", color: "#888" }}>
                       📞 {order.profile?.phone || "—"}
@@ -146,9 +169,14 @@ export default function AdminOrdersPage() {
                   <span style={{ fontSize: "0.8rem", color: "#bbb" }}>{isOpen ? "▲" : "▼"}</span>
                 </div>
 
+                {/* ── Detail (expanded) ── */}
                 {isOpen && (
                   <div style={{ borderTop: "1px solid #f3f4f6", padding: "16px 20px" }}>
-                    <div className="order-det-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
+                    <div
+                      style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}
+                      className="order-det-grid"
+                    >
+                      {/* Items */}
                       <div>
                         <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 10, color: "#555" }}>
                           📦 Mahsulotlar ({order.items.length} ta)
@@ -185,6 +213,7 @@ export default function AdminOrdersPage() {
                         )}
                       </div>
 
+                      {/* Payment check */}
                       {order.payment_check && (
                         <div>
                           <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: 10, color: "#555" }}>
@@ -204,9 +233,10 @@ export default function AdminOrdersPage() {
                       )}
                     </div>
 
-                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
+                    {/* ── Action buttons ── */}
+                                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
                       <div style={{ color: "#555", fontWeight: 600 }}>
-                        Bu yerda buyurtma holatini o&apos;zgartirish faqat admin paneli orqali mumkin.
+                        Bu buyurtma faqat ko&apos;rish uchun. Holat va o&apos;chirish admin panelida boshqariladi.
                       </div>
                     </div>
                   </div>
@@ -216,6 +246,16 @@ export default function AdminOrdersPage() {
           })}
         </div>
       )}
+
+      <div style={{ marginTop: 14, fontSize: "0.8rem", color: "#888" }}>
+        Ko&apos;rsatilmoqda: {filtered.length} / {orders.length} ta buyurtma
+      </div>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .order-det-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+      `}</style>
     </>
   );
 }

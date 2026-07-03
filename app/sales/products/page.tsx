@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import ProductForm from "@/components/admin/ProductForm";
 import { supabase } from "@/lib/supabase";
 import type { Product, Category } from "@/lib/supabase";
+import { useAppSelector } from "@/store/hooks";
 import { formatPrice } from "@/lib/format";
 
 export default function AdminProductsPage() {
@@ -12,27 +13,36 @@ export default function AdminProductsPage() {
   const [loading,    setLoading]    = useState(true);
   const [search,     setSearch]     = useState("");
   const [catFilter,  setCatFilter]  = useState<number | "">("");
+  const { user } = useAppSelector((s) => s.auth);
   const [showForm,   setShowForm]   = useState(false);
   const [editItem,   setEditItem]   = useState<Product | null>(null);
   const [deleting,   setDeleting]   = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    if (!user) {
+      setProducts([]);
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
+
     const [{ data: prods }, { data: cats }] = await Promise.all([
-      supabase.from("products").select("*").order("created_at", { ascending: false }),
+      supabase.from("products").select("*").eq("salesman_id", user.id).order("created_at", { ascending: false }),
       supabase.from("categories").select("*").order("name"),
     ]);
     setProducts((prods || []) as Product[]);
     setCategories((cats || []) as Category[]);
     setLoading(false);
-  }, []);
+  }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load(); }, [load]);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Mahsulotni o'chirishni tasdiqlaysizmi?")) return;
+    if (!confirm("Mahsulotni o&apos;chirishni tasdiqlaysizmi?")) return;
     setDeleting(id);
-    await supabase.from("products").delete().eq("id", id);
+    await supabase.from("products").delete().eq("id", id).eq("salesman_id", user?.id ?? "");
     setProducts((p) => p.filter((x) => x.id !== id));
     setDeleting(null);
   };
@@ -49,7 +59,7 @@ export default function AdminProductsPage() {
       <div className="admin-page-header">
         <h1>📦 Mahsulotlar</h1>
         <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>
-          ➕ Mahsulot qo'shish
+          ➕ Mahsulot qo&apos;shish
         </button>
       </div>
 

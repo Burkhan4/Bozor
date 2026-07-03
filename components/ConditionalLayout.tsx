@@ -6,7 +6,7 @@ import CartDrawer from "@/components/CartDrawer";
 import WishlistDrawer from "@/components/WishlistDrawer";
 import { ReactNode } from "react";
 
-const NO_SHELL = ["/admin", "/login", "/register"];
+const NO_SHELL = ["/admin", "/admin/login", "/sales", "/sales/login", "/sales/register", "/login", "/register"];
 
 function isNoShell(p: string) {
   return NO_SHELL.some((r) => p === r || p.startsWith(r + "/"));

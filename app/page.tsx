@@ -3,12 +3,27 @@ import { Product, Category } from "@/lib/supabase";
 import ProductGrid from "@/components/ProductGrid";
 
 async function getData() {
-  const [{ data: products }, { data: categories }] = await Promise.all([
-    supabaseServer.from("products").select("*").order("created_at", { ascending: false }),
+  // Fetch products and categories first, then resolve seller organizations
+  const [{ data: products, error: pErr }, { data: categories }] = await Promise.all([
+    supabaseServer.from("products").select("*").order("created_at", { ascending: false }).range(0, 999),
     supabaseServer.from("categories").select("*").order("id"),
   ]);
+  if (pErr) console.error("[getData] products error:", pErr);
+
+  const prods = (products || []) as Product[];
+
+  // Collect unique seller ids and fetch profiles in bulk
+  const sellerIds = Array.from(new Set(prods.map((p) => p.salesman_id).filter(Boolean))) as string[];
+  let profilesMap = new Map<string, string | null>();
+  if (sellerIds.length > 0) {
+    const { data: profiles } = await supabaseServer.from("profiles").select("id, organization").in("id", sellerIds);
+    (profiles || []).forEach((pr: any) => profilesMap.set(pr.id, pr.organization ?? null));
+  }
+
+  const productsWithOrg = prods.map((p) => ({ ...p, organization: p.salesman_id ? profilesMap.get(p.salesman_id) ?? null : null } as Product));
+
   return {
-    products: (products || []) as Product[],
+    products: productsWithOrg,
     categories: (categories || []) as Category[],
   };
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Chip } from "@mui/material";
 import { Star } from "@mui/icons-material";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -9,6 +10,8 @@ import { formatPrice as fmt } from "@/lib/format";
 
 interface Props { params: Promise<{ id: string }> }
 
+type SupabaseProductResult = Product & { profiles?: { organization?: string | null } | null };
+
 const getRating = (id: number) => (4.3 + ((id * 7) % 7) / 10).toFixed(1);
 const getReviews = (id: number) => 50 + ((id * 13) % 450);
 
@@ -17,7 +20,13 @@ async function getData(productId: number) {
     supabaseServer.from("products").select("*").eq("id", productId).single(),
     supabaseServer.from("categories").select("*"),
   ]);
-  return { product, categories: (categories || []) as Category[] };
+
+  if (product && product.salesman_id) {
+    const { data: profile } = await supabaseServer.from("profiles").select("organization").eq("id", product.salesman_id).single();
+    if (profile) (product as any).organization = profile.organization ?? null;
+  }
+
+  return { product: product as Product | null, categories: (categories || []) as Category[] };
 }
 
 export default async function ProductPage({ params }: Props) {
@@ -28,7 +37,10 @@ export default async function ProductPage({ params }: Props) {
   const { product, categories } = await getData(productId);
   if (!product) notFound();
 
-  const p = product as Product;
+  const p = ({
+    ...product,
+    organization: product.profiles?.organization ?? null,
+  } as Product);
   const category = categories.find((c) => c.id === p.category_id);
   const rating = getRating(p.id);
   const reviews = getReviews(p.id);
@@ -44,18 +56,18 @@ export default async function ProductPage({ params }: Props) {
           marginBottom: 24, fontSize: "0.85rem", color: "#999",
           flexWrap: "wrap",
         }}>
-          <a href="/" style={{ color: "#7B2FBE", textDecoration: "none", fontWeight: 500 }}>
+          <Link href="/" style={{ color: "#7B2FBE", textDecoration: "none", fontWeight: 500 }}>
             Bosh sahifa
-          </a>
+          </Link>
           <span>›</span>
           {category && (
             <>
-              <a
+              <Link
                 href={`/category/${category.id}`}
                 style={{ color: "#7B2FBE", textDecoration: "none", fontWeight: 500 }}
               >
                 {category.name}
-              </a>
+              </Link>
               <span>›</span>
             </>
           )}
@@ -99,6 +111,20 @@ export default async function ProductPage({ params }: Props) {
                     borderRadius: "20px",
                   }}
                 />
+              )}
+
+              {p.organization && (
+                <div style={{
+                  fontSize: "0.9rem",
+                  color: "#4b5563",
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e5e7eb",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  display: "inline-block",
+                }}>
+                  Sotuvchi: {p.organization}
+                </div>
               )}
 
               {/* Name */}

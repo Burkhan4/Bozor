@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Product, Category } from "@/lib/supabase";
+import { useAppSelector } from "@/store/hooks";
 
 interface Props {
   product?: Product | null;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function ProductForm({ product, categories, onClose, onSaved }: Props) {
+  const { user } = useAppSelector((s) => s.auth);
   const isEdit = !!product;
 
   const [name, setName]           = useState(product?.name || "");
@@ -57,7 +59,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }: P
     setSaving(true);
     try {
       const imgUrl = await uploadImage();
-      const payload = {
+      const basePayload = {
         name: name.trim(),
         description: description.trim(),
         price: Number(price),
@@ -66,15 +68,23 @@ export default function ProductForm({ product, categories, onClose, onSaved }: P
       };
 
       if (isEdit && product) {
-        const { error: e } = await supabase.from("products").update(payload).eq("id", product.id);
+        const { error: e } = await supabase
+          .from("products")
+          .update(basePayload)
+          .eq("id", product.id)
+          .eq("salesman_id", user?.id ?? "");
         if (e) throw e;
       } else {
+        const payload = {
+          ...basePayload,
+          salesman_id: user?.id ?? null,
+        };
         const { error: e } = await supabase.from("products").insert(payload);
         if (e) throw e;
       }
       onSaved();
-    } catch (err: any) {
-      setError(err.message || "Xatolik yuz berdi");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Xatolik yuz berdi");
       setSaving(false);
     }
   };
@@ -102,7 +112,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }: P
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div className="form-group">
-              <label className="form-label">Narx (so'm) *</label>
+              <label className="form-label">Narx (so&apos;m) *</label>
               <input className="form-input" type="number" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" required />
             </div>
             <div className="form-group">

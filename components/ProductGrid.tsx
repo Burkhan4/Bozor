@@ -15,7 +15,10 @@ export default function ProductGrid({
   loading?: boolean;
   emptyMessage?: string;
 }) {
-  const catMap = new Map(categories.map((c) => [c.id, c.name]));
+  // category_id string yoki number bo'lishi mumkin (DB tipiga qarab)
+  const catMap = new Map(
+    categories.map((c) => [String(c.id), c.name])
+  );
 
   if (loading) {
     return (
@@ -60,7 +63,7 @@ export default function ProductGrid({
         <ProductCard
           key={p.id}
           product={p}
-          categoryName={catMap.get(p.category_id)}
+          categoryName={catMap.get(String(p.category_id))}
         />
       ))}
     </div>

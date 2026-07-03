@@ -22,20 +22,36 @@ export default function ProductCard({
   categoryName?: string;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [warning, setWarning] = useState("");
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const items = useAppSelector((s) => s.cart.items);
   const isWishlisted = useAppSelector((s) =>
     s.wishlist.items.some((i) => i.id === product.id)
   );
+  const sellerConflict = items.length > 0 && product.salesman_id && items[0].salesman_id !== product.salesman_id;
+
+  const showConflict = () => {
+    setWarning("Savatcha faqat bitta sotuvchidan mahsulot olishi mumkin. Avval savatni tozalang.");
+    window.setTimeout(() => setWarning(""), 4000);
+  };
 
   const handleBuy = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (sellerConflict) {
+      showConflict();
+      return;
+    }
     dispatch(addToCart(product));
     router.push("/checkout");
   };
 
   const handleAddCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (sellerConflict) {
+      showConflict();
+      return;
+    }
     dispatch(addToCart(product));
   };
 
@@ -217,6 +233,11 @@ export default function ProductCard({
         >
           Sotib olish
         </Button>
+        {warning && (
+          <div style={{ marginTop: 8, fontSize: "0.78rem", color: "#dc2626", fontWeight: 600 }}>
+            {warning}
+          </div>
+        )}
       </div>
     </div>
   );

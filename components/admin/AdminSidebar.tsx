@@ -6,14 +6,20 @@ import { supabase } from "@/lib/supabase";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/authSlice";
 
+interface AdminSidebarProps {
+  basePath: string;
+  panelLabel: string;
+  loginPath: string;
+}
+
 const NAV = [
-  { href: "/admin",            icon: "📊", label: "Dashboard" },
-  { href: "/admin/products",   icon: "📦", label: "Mahsulotlar" },
-  { href: "/admin/orders",     icon: "🛒", label: "Buyurtmalar" },
-  { href: "/admin/categories", icon: "🏷️", label: "Kategoriyalar" },
+  { slug: "",            icon: "📊", label: "Dashboard" },
+  { slug: "/products",   icon: "📦", label: "Mahsulotlar" },
+  { slug: "/orders",     icon: "🛒", label: "Buyurtmalar" },
+  { slug: "/categories", icon: "🏷️", label: "Kategoriyalar" },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ basePath, panelLabel, loginPath }: AdminSidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
   const dispatch = useAppDispatch();
@@ -22,8 +28,12 @@ export default function AdminSidebar() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     dispatch(logout());
-    router.push("/admin/login");
+    router.push(loginPath);
   };
+
+  const navItems = basePath === "/admin"
+    ? NAV.filter((item) => item.slug === "/orders")
+    : NAV;
 
   const initials = (user?.full_name || user?.email || "A")
     .split(" ")
@@ -37,16 +47,16 @@ export default function AdminSidebar() {
       {/* Logo */}
       <div className="sidebar-logo">
         <span>🛍️ Bozor</span>
-        <small>Admin Panel</small>
+        <small>{panelLabel}</small>
       </div>
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {NAV.map(({ href, icon, label }) => {
-          const isActive =
-            href === "/admin"
-              ? pathname === "/admin"
-              : pathname.startsWith(href);
+        {navItems.map(({ slug, icon, label }) => {
+          const href = `${basePath}${slug}`;
+          const isActive = slug === ""
+            ? pathname === basePath
+            : pathname.startsWith(href);
           return (
             <Link
               key={href}
@@ -60,11 +70,6 @@ export default function AdminSidebar() {
         })}
 
         <div className="sidebar-divider" />
-
-        <Link href="/" className="sidebar-link" target="_blank">
-          <span className="icon">🌐</span>
-          Saytga o'tish
-        </Link>
       </nav>
 
       {/* Logout */}

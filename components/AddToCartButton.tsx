@@ -5,20 +5,41 @@ import { useRouter } from "next/navigation";
 import { Button } from "@mui/material";
 import { ShoppingCart, FlashOn, CheckCircle } from "@mui/icons-material";
 import { Product } from "@/lib/supabase";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addToCart } from "@/store/cartSlice";
 
 export default function AddToCartButton({ product }: { product: Product }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [added, setAdded] = useState(false);
+  const [warning, setWarning] = useState("");
+  const { user } = useAppSelector((s) => s.auth);
+  const items = useAppSelector((s) => s.cart.items);
+  const sellerConflict = items.length > 0 && product.salesman_id && items[0].salesman_id !== product.salesman_id;
+
+  const showConflict = () => {
+    setWarning("Savatcha faqat bitta sotuvchidan mahsulot olishi mumkin. Avval savatni tozalang.");
+    window.setTimeout(() => setWarning(""), 4000);
+  };
 
   const handleBuyNow = () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    if (sellerConflict) {
+      showConflict();
+      return;
+    }
     dispatch(addToCart(product));
     router.push("/checkout");
   };
 
   const handleAddToCart = () => {
+    if (sellerConflict) {
+      showConflict();
+      return;
+    }
     dispatch(addToCart(product));
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -72,6 +93,11 @@ export default function AddToCartButton({ product }: { product: Product }) {
       >
         {added ? "Savatga qo'shildi ✓" : "Savatga qo'shish"}
       </Button>
+      {warning && (
+        <div style={{ color: "#dc2626", fontSize: "0.9rem", textAlign: "center", marginTop: 8 }}>
+          {warning}
+        </div>
+      )}
     </div>
   );
 }

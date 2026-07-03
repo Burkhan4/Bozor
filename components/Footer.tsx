@@ -20,7 +20,7 @@ const socials = [
 
 export default function Footer() {
   return (
-    <footer className="ft-root">
+    <footer className="ft-root" style={{ position: "relative", zIndex: 1110 }}>
       <div className="ft-container">
         <div className="ft-grid">
 

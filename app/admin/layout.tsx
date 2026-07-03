@@ -7,5 +7,14 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <AdminLayoutClient>{children}</AdminLayoutClient>;
+  return (
+    <AdminLayoutClient
+      allowedRole="admin"
+      loginPath="/admin/login"
+      panelLabel="Admin Panel"
+      basePath="/admin"
+    >
+      {children}
+    </AdminLayoutClient>
+  );
 }

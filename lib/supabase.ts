@@ -10,6 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 export interface Category {
   id: number;
   name: string;
+  salesman_id?: string | null;
 }
 
 export interface Product {
@@ -19,6 +20,8 @@ export interface Product {
   price: number;
   image: string;
   category_id: number;
+  salesman_id?: string | null;
+  organization?: string | null;
   created_at: string;
 }
 
@@ -29,7 +32,8 @@ export interface Profile {
   telegram_chat_id: string | null;
   telegram_id: string | null;
   telegram_connected: boolean | string | null; // DB text, treat as truthy
-  role: "user" | "admin" | string;
+  role: "user" | "salesman" | "admin" | string;
+  organization?: string | null;
   created_at: string;
 }
 

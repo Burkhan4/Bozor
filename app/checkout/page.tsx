@@ -23,6 +23,7 @@ export default function CheckoutPage() {
 
   const [profile,   setProfile]   = useState<Profile | null>(null);
   const [profLoad,  setProfLoad]  = useState(true);
+  const [sellerOrganization, setSellerOrganization] = useState<string | null>(null);
 
   const [firstName, setFirstName] = useState("");
   const [lastName,  setLastName]  = useState("");
@@ -63,6 +64,28 @@ export default function CheckoutPage() {
         setProfLoad(false);
       });
   }, [user]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setSellerOrganization(null);
+      return;
+    }
+
+    const sellerId = items[0]?.salesman_id;
+    if (!sellerId) {
+      setSellerOrganization(null);
+      return;
+    }
+
+    supabase
+      .from("profiles")
+      .select("organization")
+      .eq("id", sellerId)
+      .single()
+      .then(({ data }) => {
+        setSellerOrganization(data?.organization ?? null);
+      });
+  }, [items]);
 
   // 3. Re-check when window gets focus (user came back from Telegram)
   useEffect(() => {
@@ -353,6 +376,11 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                    {sellerOrganization && (
+                      <div style={{ fontSize: "0.94rem", color: "#374151", fontWeight: 700, padding: "10px 14px", backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12 }}>
+                        Sotuvchi: {sellerOrganization}
+                      </div>
+                    )}
                     {items.map((item) => (
                       <div key={item.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <img src={item.image || "https://placehold.co/48x48/f3e8ff/7B2FBE?text=?"} alt={item.name}

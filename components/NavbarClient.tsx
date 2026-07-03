@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useRef, useLayoutEffect, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import {
@@ -23,6 +23,24 @@ import SearchBar from "@/components/SearchBar";
 export default function NavbarClient({ categories }: { categories: Category[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isPending, startTransition] = useTransition();
+  const navRef = useRef<HTMLDivElement | null>(null);
+  const [navHeight, setNavHeight] = useState(0);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    const update = () => {
+      const h = navRef.current?.getBoundingClientRect().height || 0;
+      setNavHeight(Math.ceil(h));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isPending) setPendingPath(null);
+  }, [isPending]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -32,7 +50,14 @@ export default function NavbarClient({ categories }: { categories: Category[] })
   const wishlistCount = useAppSelector((s) => s.wishlist.items.length);
   const { user } = useAppSelector((s) => s.auth);
 
-  const goTo = (path: string) => { setMobileOpen(false); router.push(path); };
+  const navigateTo = (path: string) => {
+    setMobileOpen(false);
+    setPendingPath(path);
+    startTransition(() => {
+      router.push(path);
+    });
+  };
+  const goTo = navigateTo;
 
   const handleLogout = async () => {
     setAnchorEl(null);
@@ -43,9 +68,16 @@ export default function NavbarClient({ categories }: { categories: Category[] })
 
   const displayName = user?.full_name?.trim() || user?.email?.split("@")[0] || "";
 
+  const roleLink = user?.role === "salesman"
+    ? { id: -1, name: "Sotuvchi paneli", path: "/sales" }
+    : user?.role === "admin"
+    ? { id: -2, name: "Admin panel", path: "/admin" }
+    : null;
+
   const allItems = [
     { id: 0, name: "Barchasi", path: "/" },
     ...categories.map((c) => ({ id: c.id, name: c.name, path: `/category/${c.id}` })),
+    ...(roleLink ? [roleLink] : []),
   ];
 
   const Icons = () => (
@@ -61,8 +93,41 @@ export default function NavbarClient({ categories }: { categories: Category[] })
 
   return (
     <>
+      {/* ═══ LOADING OVERLAY ═══ */}
+      {isPending && (
+        <div style={{
+          position: "fixed",
+          top: navHeight,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(255,255,255,0.78)",
+          backdropFilter: "blur(4px)",
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+        }}>
+          <div style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: "4px solid #f3e8ff",
+            borderTop: "4px solid #7B2FBE",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          <span style={{
+            color: "#7B2FBE",
+            fontWeight: 700,
+            fontSize: "1rem",
+            letterSpacing: 0.5,
+          }}>Yuklanmoqda...</span>
+        </div>
+      )}
       {/* ═══ DESKTOP ═══ */}
-      <div className="desktop-nav">
+      <div ref={navRef} className="desktop-nav">
 
         {/* Top row */}
         <div style={{ backgroundColor: "#fff", borderBottom: "1px solid #eee" }}>
@@ -127,11 +192,12 @@ export default function NavbarClient({ categories }: { categories: Category[] })
         <div style={{ backgroundColor: "#fff", borderBottom: "1px solid #eee", position: "sticky", top: 0, zIndex: 1100, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
           <div className="nav-container" style={{ display: "flex", alignItems: "center", overflowX: "auto" }}>
             {allItems.map((item) => {
-              const active = item.id === 0 ? pathname === "/" : pathname === item.path;
+              const currentPath = (isPending && pendingPath) ? pendingPath : pathname;
+              const active = item.id === 0 ? currentPath === "/" : currentPath === item.path;
               return (
                 <Button
                   key={item.id}
-                  onClick={() => router.push(item.path)}
+                  onClick={() => navigateTo(item.path)}
                   sx={{
                     flexShrink: 0, px: 2, py: 0.75, my: 0.5, borderRadius: 2,
                     fontSize: "0.875rem", fontWeight: active ? 700 : 500,
@@ -215,36 +281,26 @@ export default function NavbarClient({ categories }: { categories: Category[] })
 
         <List dense>
           <ListItem disablePadding>
-            <ListItemButton selected={pathname === "/"} onClick={() => goTo("/")}>
+            <ListItemButton selected={pathname === "/"} onClick={() => navigateTo("/")}>
               <ListItemText primary="Barcha mahsulotlar" slotProps={{ primary: { sx: { fontWeight: 600, fontSize: "0.9rem" } } }} />
             </ListItemButton>
           </ListItem>
           {categories.map((cat) => (
             <ListItem key={cat.id} disablePadding>
-              <ListItemButton selected={pathname === `/category/${cat.id}`} onClick={() => goTo(`/category/${cat.id}`)}>
+              <ListItemButton selected={pathname === `/category/${cat.id}`} onClick={() => navigateTo(`/category/${cat.id}`)}>
                 <ListItemText primary={cat.name} slotProps={{ primary: { sx: { fontSize: "0.875rem" } } }} />
               </ListItemButton>
             </ListItem>
           ))}
+          {roleLink && (
+            <ListItem disablePadding>
+              <ListItemButton selected={pathname === roleLink.path} onClick={() => navigateTo(roleLink.path)}>
+                <ListItemText primary={roleLink.name} slotProps={{ primary: { sx: { fontSize: "0.875rem", fontWeight: 600 } } }} />
+              </ListItemButton>
+            </ListItem>
+          )}
+            
         </List>
-
-        {user && (
-          <>
-            <Divider />
-            <List dense>
-              <ListItem disablePadding>
-                <ListItemButton onClick={() => goTo("/profile")}>
-                  <ListItemText primary="Profil" slotProps={{ primary: { sx: { fontSize: "0.875rem" } } }} />
-                </ListItemButton>
-              </ListItem>
-              <ListItem disablePadding>
-                <ListItemButton onClick={handleLogout}>
-                  <ListItemText primary="Chiqish" slotProps={{ primary: { sx: { color: "error.main", fontSize: "0.875rem" } } }} />
-                </ListItemButton>
-              </ListItem>
-            </List>
-          </>
-        )}
       </Drawer>
     </>
   );

@@ -1,32 +1,50 @@
 "use client";
 
-import { useEffect, useState, useTransition, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAppSelector } from "@/store/hooks";
 import AdminSidebar from "./AdminSidebar";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/admin":            "Dashboard",
-  "/admin/products":   "Mahsulotlar",
-  "/admin/orders":     "Buyurtmalar",
-  "/admin/categories": "Kategoriyalar",
+  "/":            "Dashboard",
+  "/products":    "Mahsulotlar",
+  "/orders":      "Buyurtmalar",
+  "/categories":  "Kategoriyalar",
 };
 
-export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {
+interface AdminLayoutClientProps {
+  children: React.ReactNode;
+  allowedRole: "admin" | "salesman";
+  loginPath: string;
+  panelLabel: string;
+  basePath: string;
+}
+
+export default function AdminLayoutClient({ children, allowedRole, loginPath, panelLabel, basePath }: AdminLayoutClientProps) {
   const router  = useRouter();
   const pathname = usePathname();
   const { user, loading: authLoading } = useAppSelector((s) => s.auth);
 
-  const [ready,      setReady]      = useState(false);   // auth check done
+  const authPages = [loginPath];
+  if (basePath === "/sales") {
+    authPages.push("/sales/register");
+  }
+
+  const isAuthPage = authPages.includes(pathname);
+  const [ready, setReady] = useState(isAuthPage);   // auth check done
   const [navigating, setNavigating] = useState(false);   // page transition
 
   // Auth + role check
   useEffect(() => {
+    if (isAuthPage) {
+      return;
+    }
+
     if (authLoading) return;
 
     if (!user) {
-      router.replace("/admin/login");
+      router.replace(loginPath);
       return;
     }
 
@@ -36,13 +54,13 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        if (data?.role !== "admin") {
-          router.replace("/");
+        if (data?.role !== allowedRole) {
+          router.replace(loginPath);
         } else {
           setReady(true);
         }
       });
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, loginPath, allowedRole, isAuthPage]);
 
   // Navigating animation — pathname o'zgarganda qisqa flash
   useEffect(() => {
@@ -52,7 +70,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   }, [pathname]);
 
   // Loading screen
-  if (authLoading || !ready) {
+  if (!isAuthPage && (authLoading || !ready)) {
     return (
       <div style={{
         minHeight: "100vh",
@@ -71,7 +89,13 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     );
   }
 
-  const title = PAGE_TITLES[pathname] || "Admin";
+  // If this is an auth page (login/register), do not render admin shell — just render children
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
+
+  const relativePath = pathname.startsWith(basePath) ? pathname.slice(basePath.length) || "/" : pathname;
+  const title = PAGE_TITLES[relativePath] || panelLabel;
   const initials = (user?.full_name || user?.email || "A")
     .split(" ")
     .map((w: string) => w[0])
@@ -82,7 +106,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   return (
     <div className="admin-shell">
       {/* Sidebar — layout da, sahifa almashganda o'ZGARMAYDI */}
-      <AdminSidebar />
+      <AdminSidebar basePath={basePath} panelLabel={panelLabel} loginPath={loginPath} />
 
       <div className="admin-main">
         {/* Top header */}
