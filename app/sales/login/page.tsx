@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function SalesLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/sales";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,7 +46,7 @@ export default function SalesLoginPage() {
     }
 
     setLoading(false);
-    router.push(redirectTo);
+    router.push("/sales");
   };
 
   const inp: React.CSSProperties = {
