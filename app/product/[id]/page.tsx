@@ -19,13 +19,26 @@ type SupabaseProductResult = Product & {
 const getRating = (id: number) => (4.3 + ((id * 7) % 7) / 10).toFixed(1);
 const getReviews = (id: number) => 50 + ((id * 13) % 450);
 
+import { getActiveCategories } from "@/lib/supabase";
+
 async function getData(productId: number) {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const [{ data: product }, { data: categories }] = await Promise.all([
     supabaseServer.from("products").select("*").eq("id", productId).single(),
     supabaseServer.from("categories").select("*"),
   ]);
 
-  if (product && product.salesman_id) {
+  if (!product || !product.date || product.date <= todayStr) {
+    return { product: null, categories: [] };
+  }
+
+  if (product.salesman_id) {
     const { data: profile } = await supabaseServer
       .from("profiles")
       .select("organization")
@@ -34,9 +47,11 @@ async function getData(productId: number) {
     if (profile) (product as any).organization = profile.organization ?? null;
   }
 
+  const activeCats = await getActiveCategories(supabaseServer, categories || []);
+
   return {
     product: product as SupabaseProductResult | null,
-    categories: (categories || []) as Category[],
+    categories: activeCats,
   };
 }
 

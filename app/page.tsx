@@ -1,16 +1,33 @@
 import { supabaseServer } from "@/lib/supabase-server";
-import { Product, Category } from "@/lib/supabase";
+import { Product, Category, getActiveCategories } from "@/lib/supabase";
 import ProductGrid from "@/components/ProductGrid";
 
 async function getData() {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   // Fetch products and categories first, then resolve seller organizations
   const [{ data: products, error: pErr }, { data: categories }] = await Promise.all([
-    supabaseServer.from("products").select("*").order("created_at", { ascending: false }).range(0, 999),
+    supabaseServer
+      .from("products")
+      .select("*")
+      .gt("date", todayStr)
+      .order("created_at", { ascending: false })
+      .range(0, 999),
     supabaseServer.from("categories").select("*").order("id"),
   ]);
   if (pErr) console.error("[getData] products error:", pErr);
 
-  const prods = (products || []) as Product[];
+  const activeCats = await getActiveCategories(supabaseServer, categories || []);
+  const activeCatIds = new Set(activeCats.map((c) => String(c.id)));
+
+  const prods = ((products || []) as Product[]).filter((p) =>
+    activeCatIds.has(String(p.category_id))
+  );
 
   // Collect unique seller ids and fetch profiles in bulk
   const sellerIds = Array.from(new Set(prods.map((p) => p.salesman_id).filter(Boolean))) as string[];
@@ -24,7 +41,7 @@ async function getData() {
 
   return {
     products: productsWithOrg,
-    categories: (categories || []) as Category[],
+    categories: activeCats,
   };
 }
 

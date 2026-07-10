@@ -1,18 +1,39 @@
 import { supabaseServer } from "@/lib/supabase-server";
-import { Product, Category } from "@/lib/supabase";
+import { Product, Category, getActiveCategories } from "@/lib/supabase";
 import ProductGrid from "@/components/ProductGrid";
 import { notFound } from "next/navigation";
 
 interface Props { params: Promise<{ id: string }> }
 
 async function getData(categoryId: number) {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   const [{ data: category }, { data: products }, { data: allCats }] = await Promise.all([
     supabaseServer.from("categories").select("*").eq("id", categoryId).single(),
-    supabaseServer.from("products").select("*").eq("category_id", categoryId).order("created_at", { ascending: false }),
+    supabaseServer.from("products").select("*").eq("category_id", categoryId).gt("date", todayStr).order("created_at", { ascending: false }),
     supabaseServer.from("categories").select("*"),
   ]);
 
-  const prods = (products || []) as Product[];
+  if (category && category.salesman_id) {
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("date")
+      .eq("id", category.salesman_id)
+      .single();
+    if (!profile || !profile.date || profile.date <= todayStr) {
+      return { category: null, products: [], allCats: [] };
+    }
+  }
+
+  const activeCats = await getActiveCategories(supabaseServer, allCats || []);
+  const activeCatIds = new Set(activeCats.map((c) => String(c.id)));
+  
+  const prods = ((products || []) as Product[]).filter((p) => activeCatIds.has(String(p.category_id)));
   const sellerIds = Array.from(new Set(prods.map((p) => p.salesman_id).filter(Boolean))) as string[];
   let profilesMap = new Map<string, string | null>();
   if (sellerIds.length > 0) {
@@ -23,7 +44,7 @@ async function getData(categoryId: number) {
   return {
     category,
     products: prods.map((product) => ({ ...product, organization: product.salesman_id ? profilesMap.get(product.salesman_id) ?? null : null })) as Product[],
-    allCats: (allCats || []) as Category[],
+    allCats: activeCats,
   };
 }
 

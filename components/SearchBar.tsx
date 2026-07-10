@@ -21,10 +21,18 @@ export default function SearchBar() {
       return;
     }
     setLoading(true);
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tashkent",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
     const { data } = await supabase
       .from("products")
       .select("id, name, price, image, category_id, description, created_at")
       .ilike("name", `%${q}%`)
+      .gt("date", todayStr)
       .limit(7);
     setResults(data || []);
     setOpen(true);

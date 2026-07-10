@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/products":    "Mahsulotlar",
   "/orders":      "Buyurtmalar",
   "/categories":  "Kategoriyalar",
+  "/sellers":     "Sotuvchilar",
 };
 
 interface AdminLayoutClientProps {

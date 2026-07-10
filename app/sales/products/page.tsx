@@ -17,6 +17,7 @@ export default function AdminProductsPage() {
   const [showForm,   setShowForm]   = useState(false);
   const [editItem,   setEditItem]   = useState<Product | null>(null);
   const [deleting,   setDeleting]   = useState<number | null>(null);
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -27,10 +28,22 @@ export default function AdminProductsPage() {
       return;
     }
 
-    const [{ data: prods }, { data: cats }] = await Promise.all([
+    const [{ data: prods }, { data: cats }, { data: prof }] = await Promise.all([
       supabase.from("products").select("*").eq("salesman_id", user.id).order("created_at", { ascending: false }),
       supabase.from("categories").select("*").order("name"),
+      supabase.from("profiles").select("date").eq("id", user.id).single(),
     ]);
+
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tashkent",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date());
+
+    const active = !!(prof?.date && prof.date > todayStr);
+    setIsSubActive(active);
+
     setProducts((prods || []) as Product[]);
     setCategories((cats || []) as Category[]);
     setLoading(false);
@@ -40,6 +53,10 @@ export default function AdminProductsPage() {
   useEffect(() => { void load(); }, [load]);
 
   const handleDelete = async (id: number) => {
+    if (!isSubActive) {
+      alert("Faol obuna talab qilinadi");
+      return;
+    }
     if (!confirm("Mahsulotni o&apos;chirishni tasdiqlaysizmi?")) return;
     setDeleting(id);
     await supabase.from("products").delete().eq("id", id).eq("salesman_id", user?.id ?? "");
@@ -58,10 +75,20 @@ export default function AdminProductsPage() {
     <>
       <div className="admin-page-header">
         <h1>📦 Mahsulotlar</h1>
-        <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>
+        <button
+          className="btn btn-primary"
+          disabled={!isSubActive}
+          onClick={() => { if (isSubActive) { setEditItem(null); setShowForm(true); } }}
+        >
           ➕ Mahsulot qo&apos;shish
         </button>
       </div>
+
+      {!isSubActive && (
+        <div className="alert-error" style={{ marginBottom: 20 }}>
+          ⚠️ Faol obuna talab qilinadi (Mahsulotlar qo&apos;shish, tahrirlash va o&apos;chirish uchun faol obuna talab qilinadi)
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
@@ -120,8 +147,16 @@ export default function AdminProductsPage() {
                     <td style={{ fontWeight: 700, color: "#7B2FBE" }}>{formatPrice(p.price)}</td>
                     <td>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setEditItem(p); setShowForm(true); }}>✏️</button>
-                        <button className="btn btn-danger btn-sm" disabled={deleting === p.id} onClick={() => handleDelete(p.id)}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={!isSubActive}
+                          onClick={() => { if (isSubActive) { setEditItem(p); setShowForm(true); } }}
+                        >✏️</button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          disabled={deleting === p.id || !isSubActive}
+                          onClick={() => handleDelete(p.id)}
+                        >
                           {deleting === p.id ? "⏳" : "🗑️"}
                         </button>
                       </div>

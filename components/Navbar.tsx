@@ -1,5 +1,5 @@
 import { supabaseServer } from "@/lib/supabase-server";
-import { Category } from "@/lib/supabase";
+import { Category, getActiveCategories } from "@/lib/supabase";
 import NavbarClient from "./NavbarClient";
 
 async function getCategories(): Promise<Category[]> {
@@ -11,7 +11,7 @@ async function getCategories(): Promise<Category[]> {
     console.error("Kategoriyalar xatosi:", error.message);
     return [];
   }
-  return data || [];
+  return getActiveCategories(supabaseServer, data || []);
 }
 
 export default async function Navbar() {

@@ -23,6 +23,7 @@ export interface Product {
   salesman_id?: string | null;
   organization?: string | null;
   created_at: string;
+  date?: string | null;
 }
 
 export interface Profile {
@@ -35,6 +36,7 @@ export interface Profile {
   role: "user" | "salesman" | "admin" | string;
   organization?: string | null;
   created_at: string;
+  date?: string | null;
 }
 
 export interface Order {
@@ -63,4 +65,38 @@ export function isTelegramConnected(value: Profile["telegram_connected"] | undef
   if (typeof value === "boolean") return value;
   if (typeof value === "string") return value === "true" || value === "1";
   return false;
+}
+
+// ─── Helper: filter out categories of inactive salesman ──
+export async function getActiveCategories(supabaseClient: any, categories: Category[]): Promise<Category[]> {
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  const sellerIds = Array.from(
+    new Set(categories.map((c) => c.salesman_id).filter(Boolean))
+  ) as string[];
+
+  if (sellerIds.length === 0) {
+    return categories;
+  }
+
+  const { data: profiles } = await supabaseClient
+    .from("profiles")
+    .select("id, date")
+    .in("id", sellerIds);
+
+  const activeSellers = new Set<string>();
+  (profiles || []).forEach((p: any) => {
+    if (p.date && p.date > todayStr) {
+      activeSellers.add(p.id);
+    }
+  });
+
+  return categories.filter(
+    (c) => !c.salesman_id || activeSellers.has(c.salesman_id)
+  );
 }

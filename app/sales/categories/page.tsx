@@ -16,23 +16,54 @@ export default function AdminCategoriesPage() {
   const [editItem,   setEditItem]   = useState<Category | null>(null);
   const [deleting,   setDeleting]   = useState<number | null>(null);
   const [error,      setError]      = useState("");
+  const [isSubActive, setIsSubActive] = useState<boolean>(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: cats }, { data: prods }]: [{ data: Category[] | null }, { data: Pick<Product, "category_id">[] | null }] = await Promise.all([
+    if (!user) {
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
+    const [
+      { data: cats },
+      { data: prods },
+      { data: prof }
+    ]: [
+      { data: Category[] | null },
+      { data: Pick<Product, "category_id">[] | null },
+      { data: any }
+    ] = await Promise.all([
       supabase.from("categories").select("*").order("name"),
       supabase.from("products").select("category_id"),
+      supabase.from("profiles").select("date").eq("id", user.id).single(),
     ]);
+
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Tashkent",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).format(new Date());
+
+    const active = !!(prof?.date && prof.date > todayStr);
+    setIsSubActive(active);
+
     const countMap = new Map<number, number>();
     (prods || []).forEach((p) => countMap.set(p.category_id, (countMap.get(p.category_id) || 0) + 1));
     setCategories((cats || []).map((c: Category) => ({ ...c, product_count: countMap.get(c.id) || 0 })));
     setLoading(false);
-  }, []);
+  }, [user]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const handleDelete = async (cat: CategoryWithCount) => {
+    if (!isSubActive) {
+      setError("Faol obuna talab qilinadi");
+      return;
+    }
+
     if (cat.salesman_id !== user?.id) {
       setError("Faqat o&apos;zingiz yaratgan kategoriyalarni o&apos;chira olasiz.");
       return;
@@ -54,10 +85,21 @@ export default function AdminCategoriesPage() {
     <>
       <div className="admin-page-header">
         <h1>🏷️ Kategoriyalar</h1>
-        <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>
+        <button
+          className="btn btn-primary"
+          disabled={!isSubActive}
+          onClick={() => { if (isSubActive) { setEditItem(null); setShowForm(true); } }}
+        >
           ➕ Kategoriya qo&apos;shish
         </button>
       </div>
+
+      {!isSubActive && (
+        <div className="alert-error" style={{ marginBottom: 20 }}>
+          ⚠️ Faol obuna talab qilinadi (Kategoriyalar qo&apos;shish, tahrirlash va o&apos;chirish uchun faol obuna talab qilinadi)
+        </div>
+      )}
+
       <div style={{ marginBottom: 14, color: "#555", fontSize: "0.92rem" }}>
         Faqat sizning yaratilgan kategoriyalaringizni tahrirlash va o&apos;chirish mumkin.
       </div>
@@ -102,12 +144,12 @@ export default function AdminCategoriesPage() {
                       <div style={{ display: "flex", gap: 6 }}>
                         <button
                           className="btn btn-secondary btn-sm"
-                          disabled={cat.salesman_id !== user?.id}
+                          disabled={cat.salesman_id !== user?.id || !isSubActive}
                           title={cat.salesman_id !== user?.id ? "Faqat o&apos;zingiz yaratgan kategoriyalarni tahrirlashingiz mumkin" : "Tahrirlash"}
-                          onClick={() => { setEditItem(cat); setShowForm(true); }}
+                          onClick={() => { if (isSubActive) { setEditItem(cat); setShowForm(true); } }}
                         >✏️</button>
                         <button className="btn btn-danger btn-sm"
-                          disabled={deleting === cat.id || cat.product_count > 0 || cat.salesman_id !== user?.id}
+                          disabled={deleting === cat.id || cat.product_count > 0 || cat.salesman_id !== user?.id || !isSubActive}
                           title={cat.product_count > 0 ? "Avval mahsulotlarni o&apos;chiring" : cat.salesman_id !== user?.id ? "Faqat o&apos;zingiz yaratgan kategoriyalarni o&apos;chira olasiz" : "O&apos;chirish"}
                           onClick={() => handleDelete(cat)}>
                           {deleting === cat.id ? "⏳" : "🗑️"}

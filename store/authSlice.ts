@@ -6,6 +6,8 @@ export interface AuthUser {
   full_name?: string;
   phone?: string;
   role?: "user" | "salesman" | "admin";
+  date?: string | null;
+  organization?: string | null;
 }
 
 interface AuthState {

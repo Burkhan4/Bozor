@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 async function buildUser(authUser: User) {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, phone, role")
+    .select("full_name, phone, role, date, organization")
     .eq("id", authUser.id)   // UUID bo'yicha izlash
     .single();
 
@@ -21,6 +21,8 @@ async function buildUser(authUser: User) {
     full_name: (profile?.full_name as string) || meta?.full_name || meta?.name || "",
     phone: (profile?.phone as string) || "",
     role: (profile?.role as "user" | "salesman" | "admin") || "user",
+    date: (profile?.date as string) || null,
+    organization: (profile?.organization as string) || null,
   };
 }
 
